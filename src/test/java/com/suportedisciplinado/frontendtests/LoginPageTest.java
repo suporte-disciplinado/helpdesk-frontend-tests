@@ -13,66 +13,94 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
+
 class LoginPageTest {
+
+    private static final String BASE_URL = "http://localhost:5173";
+    private static final String LOGIN_URL = BASE_URL + "/login";
+    private static final String TICKETS_URL = BASE_URL + "/tickets";
+    private static final Duration TIMEOUT = Duration.ofSeconds(5);
+
+    private static final String VALID_EMAIL = "admin@gmail.com";
+    private static final String VALID_PASSWORD = "1234";
+    private static final String INVALID_EMAIL = "admin@gmail123.com";
+    private static final String INVALID_PASSWORD = "123";
+
+    private static final String ERROR_MESSAGE = "Erro. Credenciais Inválidas!";
 
     WebDriver webDriver;
     LoginPage loginPage;
+    WebDriverWait wait;
 
     @BeforeEach
     void setUp() {
         webDriver = new ChromeDriver();
-        webDriver.get("http://localhost:5173/login");
-
+        webDriver.get(LOGIN_URL);
+        
         loginPage = new LoginPage(webDriver);
+        wait = new WebDriverWait(webDriver, TIMEOUT);
     }
 
     @Test
-    public void testLoginSuccess() {
-        loginPage.inputLoginEmail.sendKeys("admin@gmail.com");
-        loginPage.inputLoginPassword.sendKeys("1234");
+    void testLoginSuccess() {
+        loginPage.inputLoginEmail.sendKeys(VALID_EMAIL);
+        loginPage.inputLoginPassword.sendKeys(VALID_PASSWORD);
         loginPage.buttonLogin.click();
 
-        WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(5));
-        wait.until(ExpectedConditions.urlToBe("http://localhost:5173/tickets"));
-
-        String urlAfterLogin = webDriver.getCurrentUrl();
-        assertEquals("http://localhost:5173/tickets", urlAfterLogin);
+        wait.until(ExpectedConditions.urlToBe(TICKETS_URL));
+        assertEquals(TICKETS_URL, webDriver.getCurrentUrl());
+        
+        WebElement userMenu = wait.until(ExpectedConditions.visibilityOfElementLocated(By.partialLinkText("Sair")));
+        assertNotNull(userMenu);
     }
 
     @Test
-    public void testLoginFailure() {
-        loginPage.inputLoginEmail.sendKeys("admin@gmail123.com");
-        loginPage.inputLoginPassword.sendKeys("123");
+    void testLoginFailure() {
+        loginPage.inputLoginEmail.sendKeys(INVALID_EMAIL);
+        loginPage.inputLoginPassword.sendKeys(INVALID_PASSWORD);
         loginPage.buttonLogin.click();
-
-        WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(5));
 
         WebElement msgErrorLogin = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(By.xpath("//*[contains(text(), 'Erro. Credenciais Inválidas!')]"))
+                ExpectedConditions.visibilityOfElementLocated(By.xpath("//*[contains(text(), '" + ERROR_MESSAGE + "')]"))
         );
 
         assertNotNull(msgErrorLogin);
-        assertEquals("Erro. Credenciais Inválidas!", msgErrorLogin.getText());
+        assertEquals(ERROR_MESSAGE, msgErrorLogin.getText());
+        assertEquals(LOGIN_URL, webDriver.getCurrentUrl());
+        
+        assertTrue(loginPage.inputLoginEmail.getText().isEmpty());
+        assertTrue(loginPage.inputLoginPassword.getText().isEmpty());
     }
 
     @Test
-    public void testLogoutSuccess() {
-        loginPage.inputLoginEmail.sendKeys("admin@gmail.com");
-        loginPage.inputLoginPassword.sendKeys("1234");
+    void testLogoutSuccess() {
+        loginPage.inputLoginEmail.sendKeys(VALID_EMAIL);
+        loginPage.inputLoginPassword.sendKeys(VALID_PASSWORD);
         loginPage.buttonLogin.click();
 
-        WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(5));
-        wait.until(ExpectedConditions.urlToBe("http://localhost:5173/tickets"));
+        wait.until(ExpectedConditions.urlToBe(TICKETS_URL));
 
-        WebElement buttonLogout = webDriver.findElement(By.partialLinkText("Sair"));
+        WebElement buttonLogout = wait.until(ExpectedConditions.elementToBeClickable(By.partialLinkText("Sair")));
         buttonLogout.click();
 
-        String urlAfterLogin = webDriver.getCurrentUrl();
-        assertEquals("http://localhost:5173/login", urlAfterLogin);
+        wait.until(ExpectedConditions.urlToBe(LOGIN_URL));
+        assertEquals(LOGIN_URL, webDriver.getCurrentUrl());
+        
+        assertTrue(loginPage.inputLoginEmail.isDisplayed());
+        assertTrue(loginPage.inputLoginPassword.isDisplayed());
+    }
+
+    @Test
+    void testLoginWithEmptyFields() {
+        loginPage.buttonLogin.click();
+
+        assertEquals(LOGIN_URL, webDriver.getCurrentUrl());
     }
 
     @AfterEach
     void tearDown() {
-        webDriver.quit();
+        if (webDriver != null) {
+            webDriver.quit();
+        }
     }
 }
